@@ -1,0 +1,88 @@
+-- key bind is v
+-- ai made this 
+
+local player = game:GetService("Players").LocalPlayer
+local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+local isBoosting = false
+local animationTrack = nil
+local boostAnimation = Instance.new("Animation")
+boostAnimation.AnimationId = "rbxassetid://18897115785"
+
+local function stopAllAnimations()
+for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+track:Stop()
+end
+end
+
+local activeConnections = {}
+
+local function disableOtherAnimations()
+local connection = humanoid.AnimationPlayed:Connect(function(animTrack)
+if isBoosting and animTrack.Animation.AnimationId ~= boostAnimation.AnimationId then
+animTrack:Stop()
+end
+end)
+table.insert(activeConnections, connection)
+end
+
+local function startBoosting()
+isBoosting = true
+if not animationTrack then
+animationTrack = humanoid:LoadAnimation(boostAnimation)
+animationTrack.Looped = true
+end
+stopAllAnimations()  -- Stop any other animations
+animationTrack:Play()
+disableOtherAnimations()  -- Disable any other animations that try to play while boosting
+
+-- You can adjust the speed here
+local speed = 130
+
+-- Keep applying forward velocity while boost key is held
+local velocityConnection
+velocityConnection = runService.RenderStepped:Connect(function()
+if not isBoosting then
+velocityConnection:Disconnect()
+return
+end
+if humanoid and humanoid.RootPart then
+local lookVector = humanoid.RootPart.CFrame.LookVector
+humanoid.RootPart.Velocity = lookVector * speed
+end
+end)
+table.insert(activeConnections, velocityConnection)
+end
+
+local function stopBoosting()
+isBoosting = false
+if animationTrack then
+animationTrack:Stop()
+end
+if humanoid.RootPart then
+humanoid.RootPart.Velocity = Vector3.new()
+end
+-- Disconnect all connections established during boosting
+for _, connection in ipairs(activeConnections) do
+if connection.Connected then
+connection:Disconnect()
+end
+end
+activeConnections = {}
+end
+
+-- Keybinds for starting and stopping the boost
+userInputService.InputBegan:Connect(function(input, processed)
+if not processed and input.KeyCode == Enum.KeyCode.V then
+startBoosting()
+end
+end)
+
+userInputService.InputEnded:Connect(function(input, processed)
+if input.KeyCode == Enum.KeyCode.V then
+stopBoosting()
+end
+end) 
